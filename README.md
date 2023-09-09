@@ -2,3 +2,9 @@
 
 # Some widgets:
 - HorizontalDashDivider
+- CapShape
+- InvertedTriangle
+- RingShape
+- Space
+- LazyDropdownMenu
+- TextProgressBar
