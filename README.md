@@ -1,2 +1,4 @@
-# android-lib-project-template
-android lib project template
+[![](https://jitpack.io/v/InterruptException/widgets-compose.svg)](https://jitpack.io/#InterruptException/widgets-compose)
+
+# Some widgets:
+- HorizontalDashDivider
