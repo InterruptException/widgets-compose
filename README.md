@@ -1,2 +1,2 @@
-# android-lib-project-template
-android lib project template
+# Some widgets:
+- HorizontalDashDivider
