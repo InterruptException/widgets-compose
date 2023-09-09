@@ -8,3 +8,4 @@
 - Space
 - LazyDropdownMenu
 - TextProgressBar
+- SwitchButton
