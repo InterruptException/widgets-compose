@@ -1,4 +1,4 @@
-package top.x86.widgets.compose
+package top.x86.widgets.compose.progressindicator
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -7,12 +7,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -24,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.ExperimentalTextApi
@@ -44,26 +48,28 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalTextApi::class)
 @Composable
 fun TextProgressBar(modifier: Modifier = Modifier,
-                    percent: Float, //0<= percent >=100
-                    barHeightDp : Dp = 4.dp,
-                    ringOuterRadius: Dp = 8.dp,
-                    ringInnerRadius: Dp = 4.dp,
-                    ringOuterColor: Color = MaterialTheme.colorScheme.primary,
-                    ringInnerColor: Color = Color.White,
-                    barFinishedColor: Color = MaterialTheme.colorScheme.primary,
-                    barUnfinishedColor: Color = Color(0xFFE6E2FF),
-                    textColor: Color = Color.White,
-                    textStyle: TextStyle = LocalTextStyle.current,
-                    bubbleColor: Color = MaterialTheme.colorScheme.primary,
-                    bubbleRadiusDp: Dp = 2.dp,
-                    bubblePadding: PaddingValues = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
-                    bubbleVerticalSpace: Dp = 8.dp,
-                    fixedBubbleWidth: Boolean = true,
-                    triangleHeightDp: Dp = 4.dp,
-                    triangleWidthDp: Dp = 4.dp,
-                    triangleColor: Color = MaterialTheme.colorScheme.primary
+                    percent: Float, //进度的百分比 0<= percent >=100
+                    barHeightDp : Dp = 4.dp,  //进度条的厚度
+                    ringOuterWidth: Dp = 2.dp, //圆环外圈的宽度
+                    ringInnerRadius: Dp = 4.dp, //圆环内部半径
+                    ringOuterColor: Color = MaterialTheme.colorScheme.primary, //圆环外圈颜色
+                    ringInnerColor: Color = Color.White, //圆环内部颜色
+                    barFinishedColor: Color = MaterialTheme.colorScheme.primary, //进度条已完成部分的颜色
+                    barUnfinishedColor: Color = Color(0xFFE6E2FF), //进度条未完成部分的颜色
+                    textColor: Color = Color.White, //气泡内文本颜色
+                    textStyle: TextStyle = LocalTextStyle.current, //气泡内文本样式
+                    bubbleColor: Color = MaterialTheme.colorScheme.primary, //气泡的颜色
+                    bubbleRadiusDp: Dp = 2.dp, //气泡的圆角半径
+                    bubblePadding: PaddingValues = PaddingValues(horizontal = 4.dp, vertical = 2.dp), //气泡内部与文本之间的padding
+                    isBubbleAtTop: Boolean = true, //气泡是否处于进度条上方
+                    verticalSpace1: Dp = 4.dp,//圆环与三角形的间距
+                    verticalSpace2: Dp = 0.dp,//三角形与气泡的间距
+                    fixedBubbleWidth: Boolean = true, //固定气泡宽度不随文字字数改变 (”0%“ 到 ”100%“)，true表示不论是否为”100%“都按"100%"的宽度算
+                    triangleHeightDp: Dp = 4.dp, //三角形的高
+                    triangleWidthDp: Dp = 4.dp, //三角形的宽
+                    triangleColor: Color = MaterialTheme.colorScheme.primary, //三角形的颜色
 ) {
-    val p = MathUtils.clamp(percent, 0f, 100f)
+    val p = percent.coerceIn(0f, 100f)
     val textMeasurer = rememberTextMeasurer()
     val textStyle2 = remember(textStyle) {
         textStyle.copy(
@@ -90,11 +96,16 @@ fun TextProgressBar(modifier: Modifier = Modifier,
     val bubbleHeightDp = textLayoutHeightDp + bubblePaddingTopDp + bubblePaddingBottomDp
     val bubbleWidthDp = textLayoutWidthDp + bubblePaddingLeftDp + bubblePaddingRightDp
     val canvasMinWidthDp = bubbleWidthDp
-    val canvasMinHeightDp = bubbleHeightDp + triangleHeightDp + bubbleVerticalSpace + (max(barHeightDp, ringOuterRadius * 2))
-    Box(modifier = Modifier.defaultMinSize(minWidth = canvasMinWidthDp, minHeight = canvasMinHeightDp).then(modifier),
+    val canvasMinHeightDp = bubbleHeightDp  + verticalSpace2 + triangleHeightDp + verticalSpace1 + max(barHeightDp, (ringOuterWidth + ringInnerRadius) * 2)
+    Box(modifier = Modifier
+        .defaultMinSize(minWidth = canvasMinWidthDp, minHeight = canvasMinHeightDp)
+        .then(modifier),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(Modifier.fillMaxWidth().matchParentSize()) {
+        Canvas(
+            Modifier
+                .fillMaxWidth()
+                .matchParentSize()) {
             val bubblePaddingLeft = bubblePaddingLeftDp.toPx()
             val bubblePaddingRight = bubblePaddingRightDp.toPx()
             val bubblePaddingTop = bubblePaddingTopDp.toPx()
@@ -111,9 +122,22 @@ fun TextProgressBar(modifier: Modifier = Modifier,
             val barHeight = barHeightDp.toPx()
             val triangleHeight = triangleHeightDp.toPx()
             val triangleWidth = triangleWidthDp.toPx()
-            val bubbleCenterY = bubbleSize.height / 2f
-            val triangleCenterY = bubbleSize.height + triangleHeight/2f
-            val barCenterY = triangleCenterY + triangleHeight / 2f + bubbleVerticalSpace.toPx() + max(barHeight / 2f, ringOuterRadius.toPx())
+            val ringOuterRadius = ringInnerRadius + ringOuterWidth
+            val bubbleCenterY = if (isBubbleAtTop) {
+                bubbleSize.height / 2f
+            } else {
+                max(barHeight, ringOuterRadius.toPx() * 2) + verticalSpace1.toPx() + triangleHeight + verticalSpace2.toPx() + bubbleHeightDp.toPx() / 2f
+            }
+            val triangleCenterY = if (isBubbleAtTop) {
+                (bubbleSize.height + verticalSpace2.toPx() + triangleHeight/2f)
+            }  else {
+                max(barHeight, ringOuterRadius.toPx() * 2) + verticalSpace1.toPx() + triangleHeight /2f
+            }
+            val barCenterY = if (isBubbleAtTop) {
+                bubbleSize.height + verticalSpace2.toPx() + triangleHeight + verticalSpace1.toPx() + max(barHeight / 2f, ringOuterRadius.toPx())
+            } else {
+                max(barHeight / 2f, ringOuterRadius.toPx())
+            }
             val ringCenterX = triangleCenterX
             val ringCenterY = barCenterY
 
@@ -154,7 +178,8 @@ fun TextProgressBar(modifier: Modifier = Modifier,
                 triangleCenterY = triangleCenterY,
                 triangleWidth = triangleWidth,
                 triangleHeight = triangleHeight,
-                triangleColor = triangleColor)
+                triangleColor = triangleColor,
+                isBubbleAtTop = isBubbleAtTop)
         }
     }
 }
@@ -208,6 +233,7 @@ private fun DrawScope.drawTriangleBlock(triangleCenterX: Float,
                                         triangleWidth: Float,
                                         triangleHeight: Float,
                                         triangleColor: Color,
+                                        isBubbleAtTop: Boolean = true,
 ) {
     val halfWidth = triangleWidth/2f
     val halfHeight = triangleHeight/2f
@@ -239,10 +265,20 @@ private fun DrawScope.drawTriangleBlock(triangleCenterX: Float,
         )
         close()
     }
-    drawPath(
-        path = path,
-        color = triangleColor
-    )
+    if (isBubbleAtTop) {
+        drawPath(
+            path = path,
+            color = triangleColor
+        )
+
+    } else {
+        rotate(180f, pivot = Offset (triangleCenterX, triangleCenterY)) {
+            drawPath(
+                path = path,
+                color = triangleColor
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalTextApi::class)
@@ -257,7 +293,8 @@ private fun DrawScope.drawBubble(fixedBubbleWidth: Boolean,
                                  bubbleCenterX: Float,
                                  bubbleCenterY: Float,
                                  bubblePadding: PaddingValues,
-                                 layoutDirection: LayoutDirection
+                                 layoutDirection: LayoutDirection,
+                                 isBubbleAtTop: Boolean = true,
 ) {
     val textLayout = textMeasurer.measure(percentText, style = textStyle)
     val textLayoutSize = textLayout.size
@@ -313,15 +350,60 @@ private fun DrawScope.drawRing(
 }
 
 
-@Preview
+@Preview(
+    heightDp = 1000,
+    widthDp = 400
+)
 @Composable
 fun Preview_TextProgressBar() {
-    Column(modifier = Modifier.background(Color.Black).padding(horizontal = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        TextProgressBar(percent = 0f, modifier = Modifier.width(200.dp))
-        TextProgressBar(percent = 25f, modifier = Modifier.size(200.dp, 50.dp))
-        TextProgressBar(percent = 50f, modifier = Modifier.size(200.dp, 50.dp))
-        TextProgressBar(percent = 75f, modifier = Modifier.size(200.dp, 50.dp))
-        TextProgressBar(percent = 100f, modifier = Modifier.size(200.dp, 50.dp))
+    Surface {
+        Column(modifier = Modifier
+            .background(Color.LightGray)
+            .fillMaxSize()
+            .padding(horizontal = 10.dp, vertical = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            TextProgressBar(percent = 0f, modifier = Modifier
+                .background(Color.White)
+                .fillMaxWidth())
+            TextProgressBar(percent = 0f, modifier = Modifier
+                .background(Color.White)
+                .fillMaxWidth(), isBubbleAtTop = false)
+            TextProgressBar(percent = 25f, modifier = Modifier
+                .background(Color.White)
+                .fillMaxWidth(), verticalSpace2 = 2.dp)
+            TextProgressBar(percent = 25f, modifier = Modifier
+                .background(Color.White)
+                .fillMaxWidth(), verticalSpace2 = 2.dp, isBubbleAtTop = false)
+            TextProgressBar(percent = 50f, modifier = Modifier
+                .background(Color.White)
+                .fillMaxWidth(), verticalSpace1 = 0.dp , verticalSpace2 = 2.dp)
+            TextProgressBar(percent = 50f, modifier = Modifier
+                .background(Color.White)
+                .fillMaxWidth(), verticalSpace1 = 0.dp , verticalSpace2 = 2.dp, isBubbleAtTop = false)
+            TextProgressBar(percent = 75f, modifier = Modifier
+                .background(Color.White)
+                .fillMaxWidth(), ringOuterWidth = 5.dp)
+            TextProgressBar(percent = 75f, modifier = Modifier
+                .background(Color.White)
+                .fillMaxWidth(), ringOuterWidth = 5.dp, isBubbleAtTop = false)
+            TextProgressBar(percent = 100f, modifier = Modifier
+                .background(Color.White)
+                .fillMaxWidth(), ringInnerRadius = 6.dp)
+            TextProgressBar(percent = 100f, modifier = Modifier
+                .background(Color.White)
+                .fillMaxWidth(), ringInnerRadius = 6.dp, isBubbleAtTop = false)
+
+            TextProgressBar(percent = 100f, modifier = Modifier
+                .background(Color.White)
+                .fillMaxWidth(), triangleHeightDp = 10.dp)
+            TextProgressBar(percent = 100f, modifier = Modifier
+                .background(Color.White)
+                .fillMaxWidth(), triangleHeightDp = 10.dp, isBubbleAtTop = false)
+
+            TextProgressBar(percent = 100f, modifier = Modifier.background(Color.White).fillMaxWidth(),
+                triangleHeightDp = 6.dp, triangleWidthDp = 12.dp, ringInnerRadius = 0.dp, ringOuterWidth = 0.dp)
+            TextProgressBar(percent = 100f, modifier = Modifier.background(Color.White).fillMaxWidth(), isBubbleAtTop = false,
+                triangleHeightDp = 6.dp, triangleWidthDp = 12.dp, ringInnerRadius = 0.dp, ringOuterWidth = 0.dp)
+        }
     }
 }
