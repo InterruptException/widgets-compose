@@ -9,3 +9,6 @@
 - LazyDropdownMenu
 - TextProgressBar
 - SwitchButton
+
+# TextProgressBar
+![TextProgressBar](https://github.com/InterruptException/widgets-compose/blob/main/screenshots/TextProgressBar.png)
