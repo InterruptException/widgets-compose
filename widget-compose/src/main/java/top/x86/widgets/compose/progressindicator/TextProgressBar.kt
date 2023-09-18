@@ -1,5 +1,8 @@
 package top.x86.widgets.compose.progressindicator
 
+import androidx.annotation.FloatRange
+import androidx.annotation.IntRange
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -9,20 +12,22 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -41,8 +46,9 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
-import androidx.core.math.MathUtils
+import kotlinx.coroutines.delay
 import java.lang.Float.max
+import java.lang.Float.min
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalTextApi::class)
@@ -68,6 +74,11 @@ fun TextProgressBar(modifier: Modifier = Modifier,
                     triangleHeightDp: Dp = 4.dp, //三角形的高
                     triangleWidthDp: Dp = 4.dp, //三角形的宽
                     triangleColor: Color = MaterialTheme.colorScheme.primary, //三角形的颜色
+                    enabledHighlight: Boolean = false,
+                    @FloatRange(0.0, 1.0) highlightWidthRange: Float = 0.8f,
+                    moveInterval: Long = 30,
+                    moveStep: Float = 0.03f,
+                    barBrush: Brush? = null
 ) {
     val p = percent.coerceIn(0f, 100f)
     val textMeasurer = rememberTextMeasurer()
@@ -79,6 +90,24 @@ fun TextProgressBar(modifier: Modifier = Modifier,
     val text = remember(p) {
         "${p.roundToInt()}%"
     }
+
+    var barHighlightOffset by remember {
+        mutableStateOf(0f)
+    }
+
+    if (enabledHighlight) {
+        LaunchedEffect(Unit) {
+            while (p < 100f) {
+                var nextOffset = barHighlightOffset + moveStep
+                if (nextOffset > 1f + highlightWidthRange/2f) {
+                    nextOffset = -highlightWidthRange/2f
+                }
+                barHighlightOffset = nextOffset
+                delay(moveInterval)
+            }
+        }
+    }
+
     val layoutDirection = LocalLayoutDirection.current
     val textLayout = textMeasurer.measure("100%", style = textStyle)//用于测量最大宽度，避免宽度变化
     val textLayoutSize = textLayout.size
@@ -164,7 +193,11 @@ fun TextProgressBar(modifier: Modifier = Modifier,
                 barHeight = barHeight,
                 barFinishedColor = barFinishedColor,
                 barUnfinishedColor = barUnfinishedColor,
-                bothSideSpace = bothSidesSpace)
+                bothSideSpace = bothSidesSpace,
+                barBrush = barBrush,
+                enabledHighlight = enabledHighlight,
+                barHighlightOffset = barHighlightOffset,
+                highlightWidthRange = highlightWidthRange)
             drawRing(
                 ringCenterX = ringCenterX,
                 ringCenterY = ringCenterY,
@@ -191,7 +224,12 @@ private fun DrawScope.drawBar(barCenterX: Float,
                               barHeight : Float,
                               barFinishedColor: Color,
                               barUnfinishedColor: Color,
-                              bothSideSpace: Float
+                              bothSideSpace: Float,
+                              barBrush: Brush? = null,
+                              enabledHighlight: Boolean = false,
+                              @FloatRange(0.0, 1.0) barHighlightOffset: Float,
+                              @FloatRange(0.0, 1.0) highlightWidthRange: Float
+
 ) {
     val barY = barCenterY
     val barLeftX = barCenterX - barWidth / 2f
@@ -226,6 +264,87 @@ private fun DrawScope.drawBar(barCenterX: Float,
         strokeWidth = barHeight,
         cap = StrokeCap.Round
     )
+
+    if (enabledHighlight) {
+        drawBarHighlight(
+            barFinishedLeft = barLeftX,
+            barFinishedRight = barMiddleX,
+            barY = barY,
+            barColorFinished = barFinishedColor,
+            highlightColor = Color.White,
+            highlightWidthRange = highlightWidthRange,
+            highlightOffsetCenterX = barHighlightOffset,
+            barHeight = barHeight
+        )
+    }
+}
+
+private fun DrawScope.drawBarHighlight(barFinishedLeft: Float, barFinishedRight: Float, barY: Float, barHeight: Float,
+                                       barColorFinished: Color, highlightColor: Color,
+                                       @FloatRange(0.0, 1.0) highlightWidthRange: Float,
+                                       @FloatRange(0.0, 1.0) highlightOffsetCenterX: Float){
+    val barWidth = barFinishedRight - barFinishedLeft
+    val highlightWidthMax = barWidth * highlightWidthRange
+    val highlightCenterX = barFinishedLeft + barWidth * highlightOffsetCenterX
+    drawBarHighlightLeft(
+        barColorFinished = barColorFinished,
+        highlightColor = highlightColor,
+        highlightWidthMax = highlightWidthMax,
+        highlightCenterX = highlightCenterX,
+        barFinishedLeft = barFinishedLeft,
+        barFinishedRight = barFinishedRight,
+        barY = barY,
+        barHeight = barHeight
+    )
+    drawBarHighlightRight(
+        barColorFinished = barColorFinished,
+        highlightColor = highlightColor,
+        highlightWidthMax = highlightWidthMax,
+        highlightCenterX = highlightCenterX,
+        barFinishedLeft = barFinishedLeft,
+        barFinishedRight = barFinishedRight,
+        barY = barY,
+        barHeight = barHeight
+    )
+}
+
+private fun DrawScope.drawBarHighlightLeft(barColorFinished: Color, highlightColor: Color,
+                                           highlightWidthMax: Float,
+                                           highlightCenterX: Float,
+                                           barFinishedLeft: Float,
+                                           barFinishedRight: Float,
+                                           barY: Float,
+                                           barHeight: Float,
+){
+    val halfWidth = highlightWidthMax / 2f
+    val highlightStartX = (highlightCenterX - halfWidth).coerceIn(barFinishedLeft, barFinishedRight)
+    val highlightEndX = highlightCenterX.coerceIn(barFinishedLeft, barFinishedRight)
+    val brush = Brush.horizontalGradient(listOf(barColorFinished, highlightColor), startX = highlightStartX, endX = highlightCenterX)
+
+    drawLine(brush = brush,
+        start = Offset(x = highlightStartX, y = barY),
+        end = Offset(x = highlightEndX, y = barY),
+        strokeWidth = barHeight,
+        cap = StrokeCap.Round)
+}
+
+private fun DrawScope.drawBarHighlightRight(barColorFinished: Color, highlightColor: Color,
+                                            highlightWidthMax: Float,
+                                            highlightCenterX: Float,
+                                            barFinishedLeft: Float,
+                                            barFinishedRight: Float,
+                                            barY: Float,
+                                            barHeight: Float
+){
+    val halfWidth = highlightWidthMax / 2f
+    val highlightStartX = highlightCenterX.coerceIn(barFinishedLeft, barFinishedRight)
+    val highlightEndX = (highlightCenterX+halfWidth).coerceIn(barFinishedLeft, barFinishedRight)
+    val brush = Brush.horizontalGradient(listOf(highlightColor, barColorFinished), startX = highlightCenterX, endX = highlightEndX)
+    drawLine(brush = brush,
+        start = Offset(x = highlightStartX, y = barY),
+        end = Offset(x = highlightEndX, y = barY),
+        strokeWidth = barHeight,
+        cap = StrokeCap.Round)
 }
 
 private fun DrawScope.drawTriangleBlock(triangleCenterX: Float,
@@ -400,9 +519,13 @@ fun Preview_TextProgressBar() {
                 .background(Color.White)
                 .fillMaxWidth(), triangleHeightDp = 10.dp, isBubbleAtTop = false)
 
-            TextProgressBar(percent = 100f, modifier = Modifier.background(Color.White).fillMaxWidth(),
+            TextProgressBar(percent = 100f, modifier = Modifier
+                .background(Color.White)
+                .fillMaxWidth(),
                 triangleHeightDp = 6.dp, triangleWidthDp = 12.dp, ringInnerRadius = 0.dp, ringOuterWidth = 0.dp)
-            TextProgressBar(percent = 100f, modifier = Modifier.background(Color.White).fillMaxWidth(), isBubbleAtTop = false,
+            TextProgressBar(percent = 100f, modifier = Modifier
+                .background(Color.White)
+                .fillMaxWidth(), isBubbleAtTop = false,
                 triangleHeightDp = 6.dp, triangleWidthDp = 12.dp, ringInnerRadius = 0.dp, ringOuterWidth = 0.dp)
         }
     }
